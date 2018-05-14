@@ -253,6 +253,8 @@ class FullyConnectedNet(object):
             if i < self.num_layers - 1:
                 if self.use_batchnorm:
                     out, cache = self.affine_bn_relu_forward(out, self.params['W' + str(i + 1)], self.params['b' + str(i + 1)], self.params['gamma' + str(i + 1)], self.params['beta' + str(i + 1)], self.bn_params[i])
+                elif self.use_dropout:
+                    out, cache = self.affine_relu_dropout_forward(out, self.params['W' + str(i + 1)], self.params['b' + str(i + 1)], self.dropout_param)
                 else:
                     out, cache = affine_relu_forward(out, self.params['W' + str(i + 1)], self.params['b' + str(i + 1)])
             else:
@@ -288,6 +290,8 @@ class FullyConnectedNet(object):
             if i < self.num_layers - 1:
                 if self.use_batchnorm:
                     dout, grads['W' + str(i + 1)], grads['b' + str(i + 1)], grads['gamma' + str(i + 1)], grads['beta' + str(i + 1)] = self.affine_bn_relu_backward(dout, caches[i])
+                elif self.use_dropout:
+                    dout, grads['W' + str(i + 1)], grads['b' + str(i + 1)] = self.affine_relu_dropout_backward(dout, caches[i])
                 else:
                     dout, grads['W' + str(i + 1)], grads['b' + str(i + 1)] = affine_relu_backward(dout, caches[i])
             else:
@@ -299,12 +303,14 @@ class FullyConnectedNet(object):
 
         return loss, grads
     
+    
     def affine_bn_relu_forward(self, x, w, b, gamma, beta, bn_param):
         a, fc_cache = affine_forward(x, w, b)
         a_norm, bn_cache = batchnorm_forward(a, gamma, beta, bn_param)
         out, relu_cache = relu_forward(a_norm)
         cache = (fc_cache, bn_cache, relu_cache)
         return out, cache
+
     
     def affine_bn_relu_backward(self, dout, cache):
         fc_cache, bn_cache, relu_cache = cache
@@ -312,3 +318,19 @@ class FullyConnectedNet(object):
         da, dgamma, dbeta = batchnorm_backward(da_norm, bn_cache)
         dx, dw, db = affine_backward(da, fc_cache)
         return dx, dw, db, dgamma, dbeta
+
+
+    def affine_relu_dropout_forward(self, x, w, b, dropout_param):
+        a, fc_cache = affine_forward(x, w, b)
+        out, relu_cache = relu_forward(a)
+        out, dropout_cache = dropout_forward(out, dropout_param)
+        cache = (fc_cache, relu_cache, dropout_cache)
+        return out, cache
+
+
+    def affine_relu_dropout_backward(self, dout, cache):
+        fc_cache, relu_cache, dropout_cache = cache
+        dout = dropout_backward(dout, dropout_cache)
+        da = relu_backward(dout, relu_cache)
+        dx, dw, db = affine_backward(da, fc_cache)
+        return dx, dw, db
