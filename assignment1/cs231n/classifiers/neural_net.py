@@ -95,8 +95,8 @@ class TwoLayerNet(object):
         # in the variable loss, which should be a scalar. Use the Softmax           #
         # classifier loss.                                                          #
         #############################################################################
-        scores -= np.max(scores)
-        probs = np.exp(scores) / np.sum(np.exp(scores), axis = 1).reshape(N, 1)
+        scores -= np.max(scores, axis=1, keepdims=True)
+        probs = np.exp(scores) / np.sum(np.exp(scores), axis=1, keepdims=True)
         negative_logs = -np.log(probs)
         loss = np.sum(negative_logs[np.arange(N), y]) / N + reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
         #############################################################################
@@ -160,7 +160,7 @@ class TwoLayerNet(object):
             # TODO: Create a random minibatch of training data and labels, storing  #
             # them in X_batch and y_batch respectively.                             #
             #########################################################################
-            idxs = np.random.choice(num_train, batch_size, replace = True)
+            idxs = np.random.choice(num_train, batch_size, replace=True)
             X_batch = X[idxs]
             y_batch = y[idxs]
             #########################################################################
@@ -223,7 +223,7 @@ class TwoLayerNet(object):
         ###########################################################################
         # TODO: Implement this function; it should be VERY simple!                #
         ###########################################################################
-        y_pred = np.argmax(self.loss(X), axis = 1)
+        y_pred = np.argmax(self.loss(X), axis=1)
         ###########################################################################
         #                              END OF YOUR CODE                           #
         ###########################################################################
