@@ -103,7 +103,7 @@ class TwoLayerNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         loss, dscores = softmax_loss(scores, y)
-        loss += 0.5 * self.reg * (np.square(np.linalg.norm(self.params['W1'])) + np.square(np.linalg.norm(self.params['W2'])))
+        loss += 0.5 * self.reg * (np.sum(np.square(self.params['W1'])) + np.sum(np.square(self.params['W2'])))
         dA1, grads['W2'], grads['b2'] = affine_backward(dscores, fc_cache2)
         dZ1 = relu_backward(dA1, relu_cache1)
         _, grads['W1'], grads['b1'] = affine_backward(dZ1, fc_cache1)
@@ -285,7 +285,7 @@ class FullyConnectedNet(object):
         ############################################################################
         loss, dout = softmax_loss(scores, y)
         for i in range(self.num_layers):
-            loss += 0.5 * self.reg * np.square(np.linalg.norm(self.params['W' + str(i + 1)]))
+            loss += 0.5 * self.reg * np.sum(np.square(self.params['W' + str(i + 1)]))
         for i in reversed(range(self.num_layers)):
             if i < self.num_layers - 1:
                 if self.use_batchnorm:
