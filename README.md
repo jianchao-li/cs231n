@@ -1,3 +1,3 @@
-# CS231n Convolutional Neural Networks for Visual Recognition (Spring 2017)
+# CS231n: Deep Learning for Computer Vision (Spring 2026)
 
-The [CS231n Convolutional Neural Networks for Visual Recognition (Spring 2017)](http://cs231n.stanford.edu/2017/) of Stanford University
+The [CS231n: Deep Learning for Computer Vision (Spring 2026)](https://cs231n.stanford.edu/2026/) of Stanford University
