@@ -23,7 +23,7 @@ def affine_forward(x, w, b):
     ###########################################################################
     # TODO: Copy over your solution from Assignment 1.                        #
     ###########################################################################
-
+    out = x.reshape(x.shape[0], -1).dot(w) + b
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -51,7 +51,9 @@ def affine_backward(dout, cache):
     ###########################################################################
     # TODO: Copy over your solution from Assignment 1.                        #
     ###########################################################################
-
+    dx = dout.dot(w.T).reshape(x.shape)
+    dw = x.reshape(x.shape[0], -1).T.dot(dout)
+    db = np.sum(dout, axis=0)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -72,7 +74,7 @@ def relu_forward(x):
     ###########################################################################
     # TODO: Copy over your solution from Assignment 1.                        #
     ###########################################################################
-
+    out = np.maximum(x, 0)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -94,7 +96,7 @@ def relu_backward(dout, cache):
     ###########################################################################
     # TODO: Copy over your solution from Assignment 1.                        #
     ###########################################################################
-
+    dx = dout * (x > 0)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -119,7 +121,15 @@ def softmax_loss(x, y):
     ###########################################################################
     # TODO: Copy over your solution from Assignment 1.                        #
     ###########################################################################
-
+    shifted_logits = x - np.max(x, axis=1, keepdims=True)
+    Z = np.sum(np.exp(shifted_logits), axis=1, keepdims=True)
+    log_probs = shifted_logits - np.log(Z)
+    probs = np.exp(log_probs)
+    N = x.shape[0]
+    loss = -np.sum(log_probs[np.arange(N), y]) / N
+    dx = probs.copy()
+    dx[np.arange(N), y] -= 1
+    dx /= N
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -194,7 +204,15 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
         # might prove to be helpful.                                          #
         #######################################################################
-        pass
+        sample_mean = x.mean(axis=0)
+        sample_var = x.var(axis=0)
+        x_centered = x - sample_mean
+        std = np.sqrt(sample_var + eps)
+        x_norm = x_centered / std
+        out = gamma * x_norm + beta
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var        
+        cache = (std, x_centered, x_norm, gamma, beta)
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -205,7 +223,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
-        pass
+        x = (x - running_mean) / np.sqrt(running_var + eps)
+        out = gamma * x + beta
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
@@ -242,7 +261,16 @@ def batchnorm_backward(dout, cache):
     # Referencing the original paper (https://arxiv.org/abs/1502.03167)       #
     # might prove to be helpful.                                              #
     ###########################################################################
-
+    std, x_centered, x_norm, gamma, beta = cache
+    N = dout.shape[0]
+    dgamma = np.sum(dout * x_norm, axis=0)
+    dbeta = dout.sum(axis=0)
+    dx_norm = dout * gamma
+    dx_centered = dx_norm / std
+    dstd = -np.sum(dx_norm * x_centered / (std * std), axis=0)
+    dvar = 0.5 * dstd / std
+    dx_centered += (2.0 / N) * x_centered * dvar
+    dx = dx_centered - dx_centered.sum(axis=0) / N
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -272,7 +300,11 @@ def batchnorm_backward_alt(dout, cache):
     # should be able to compute gradients with respect to the inputs in a     #
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
-
+    std, x_centered, x_norm, gamma, beta = cache
+    N = dout.shape[0]
+    dgamma = np.sum(dout * x_norm, axis=0)
+    dbeta = dout.sum(axis=0)
+    dx = 1. / N * gamma / std * (-dgamma * x_norm + N * dout - np.expand_dims(np.ones(N), axis=1).dot(np.expand_dims(dbeta, axis=1).T))
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -313,7 +345,13 @@ def layernorm_forward(x, gamma, beta, ln_param):
     # transformations you could perform, that would enable you to copy over   #
     # the batch norm code and leave it almost unchanged?                      #
     ###########################################################################
-
+    sample_mean = x.mean(axis=1, keepdims=True)
+    sample_var = x.var(axis=1, keepdims=True)
+    x_centered = x - sample_mean
+    std = np.sqrt(sample_var + eps)
+    x_norm = x_centered / std
+    out = gamma * x_norm + beta       
+    cache = (std, x_centered, x_norm, gamma, beta)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -343,7 +381,16 @@ def layernorm_backward(dout, cache):
     # implementation of batch normalization. The hints to the forward pass    #
     # still apply!                                                            #
     ###########################################################################
-
+    std, x_centered, x_norm, gamma, beta = cache
+    D = dout.shape[1]
+    dgamma = np.sum(dout * x_norm, axis=0)
+    dbeta = dout.sum(axis=0)
+    dx_norm = dout * gamma
+    dx_centered = dx_norm / std
+    dstd = -np.sum(dx_norm * x_centered / (std * std), axis=1, keepdims=True)
+    dvar = 0.5 * dstd / std
+    dx_centered += (2.0 / D) * x_centered * dvar
+    dx = dx_centered - dx_centered.sum(axis=1, keepdims=True) / D
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
