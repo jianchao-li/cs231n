@@ -180,7 +180,13 @@ class Unet(nn.Module):
             # Make sure to exactly follow this structure of ModuleList in order to
             # load a pretrained checkpoint.
             ##################################################################
-
+            down_block = nn.ModuleList(
+              [
+                ResnetBlock(dim_in, dim_in, context_dim),
+                ResnetBlock(dim_in, dim_in, context_dim),
+                Downsample(dim_in, dim_out),
+              ]
+            )
             ##################################################################
             self.downs.append(down_block)
 
@@ -204,7 +210,13 @@ class Unet(nn.Module):
             # Don't forget to account for the skip connections by having 2 x dim_out
             # channels at the input of both ResnetBlocks.
             ##################################################################
-
+            up_block = nn.ModuleList(
+              [
+                Upsample(dim_in, dim_out),
+                ResnetBlock(2 * dim_out, dim_out, context_dim),
+                ResnetBlock(2 * dim_out, dim_out, context_dim),
+              ]
+            )
             self.ups.append(up_block)
             ##################################################################
 
@@ -226,7 +238,9 @@ class Unet(nn.Module):
         # You will have to call self.forward two times.
         # For unconditional sampling, pass None in`text_emb`.
         ##################################################################
-
+        cond = self.forward(x, time, model_kwargs)
+        uncond = self.forward(x, time, model_kwargs={"text_emb": None})
+        x = (1 + cfg_scale) * cond - cfg_scale * uncond
         ##################################################################
 
         return x
@@ -281,7 +295,25 @@ class Unet(nn.Module):
         #      skip connection from the downsampling path.
         #    - Make sure to pass the context to each ResNet block.
         ##################################################################
-
+        skips = []
+        for down_block in self.downs:
+          for module in down_block:
+            if isinstance(module, ResnetBlock):
+              x = module(x, context)
+              skips.append(x)
+            else:
+              x = module(x)
+        x = self.mid_block1(x, context)
+        x = self.mid_block2(x, context)
+        ind = len(skips) - 1
+        for up_block in self.ups:
+          for module in up_block:
+            if isinstance(module, ResnetBlock):
+              x = torch.cat([x, skips[ind]], dim=1)
+              ind -= 1
+              x = module(x, context)
+            else:
+              x = module(x)
         ##################################################################
 
         # Final block
