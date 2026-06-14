@@ -143,7 +143,10 @@ class CaptioningRNN:
         ############################################################################
         h0 = affine_forward(features, W_proj, b_proj)
         x = word_embedding_forward(captions_in, W_embed)
-        h = rnn_forward(x, h0, Wx, Wh, b)
+        if self.cell_type == "rnn":
+          h = rnn_forward(x, h0, Wx, Wh, b)
+        else:
+          h = lstm_forward(x, h0, Wx, Wh, b)
         scores = temporal_affine_forward(h, W_vocab, b_vocab)
         loss = temporal_softmax_loss(scores, captions_out, mask)
         ############################################################################
@@ -210,10 +213,14 @@ class CaptioningRNN:
         # you are using an LSTM, initialize the first cell state to zeros.        #
         ###########################################################################
         prev_h = affine_forward(features, W_proj, b_proj)
+        prev_c = torch.zeros((N, prev_h.shape[1]))
         caps = self._null * torch.ones((N,), dtype=torch.long)
         for i in range(max_length):
           x = word_embedding_forward(caps if not i else captions[:, i - 1], W_embed)
-          h = rnn_step_forward(x, prev_h, Wx, Wh, b)
+          if self.cell_type == "rnn":
+            h = rnn_step_forward(x, prev_h, Wx, Wh, b)
+          else:
+            h, prev_c = lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b)
           scores = affine_forward(h, W_vocab, b_vocab)
           captions[:, i] = scores.max(dim=-1)[1]
           prev_h = h

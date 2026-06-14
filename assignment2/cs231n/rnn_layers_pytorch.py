@@ -139,7 +139,14 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     # TODO: Implement the forward pass for a single timestep of an LSTM.        #
     # You may want to use the numerically stable sigmoid implementation above.  #
     #############################################################################
-
+    H = prev_h.shape[1]
+    a = x.mm(Wx) + prev_h.mm(Wh) + b
+    i = torch.nn.Sigmoid()(a[:, :H])
+    f = torch.nn.Sigmoid()(a[:, H : 2 * H])
+    o = torch.nn.Sigmoid()(a[:, 2 * H : 3 * H])
+    g = torch.tanh(a[:, 3 * H:])
+    next_c = f * prev_c + i * g
+    next_h = o * torch.tanh(next_c)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -173,7 +180,15 @@ def lstm_forward(x, h0, Wx, Wh, b):
     # TODO: Implement the forward pass for an LSTM over an entire timeseries.   #
     # You should use the lstm_step_forward function that you just defined.      #
     #############################################################################
-
+    N, T, _ = x.shape
+    H = h0.shape[1]
+    prev_c = torch.zeros((N, H), dtype=h0.dtype)
+    hs = []
+    for i in range(T):
+      prev_h = h0 if not i else hs[-1]
+      h, prev_c = lstm_step_forward(x[:, i, :], prev_h, prev_c, Wx, Wh, b)
+      hs.append(h)
+    h = torch.stack(hs, dim=1)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
