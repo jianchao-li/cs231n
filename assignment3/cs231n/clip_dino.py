@@ -26,7 +26,9 @@ def get_similarity_no_loop(text_features, image_features):
     ############################################################################
     # TODO: Compute the cosine similarity. Do NOT use for loops.               #
     ############################################################################
-
+    text_features /= text_features.norm(dim=1, keepdim=True)
+    image_features /= image_features.norm(dim=1, keepdim=True)
+    similarity = text_features.mm(image_features.T)
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -62,7 +64,22 @@ def clip_zero_shot_classifier(clip_model, clip_preprocess, images,
     ############################################################################
     # TODO: Find the class labels for images.                                  #
     ############################################################################
+    processed_images = [
+      clip_preprocess(Image.fromarray(image)).unsqueeze(0)
+      for image in images
+    ]
+    images_tensor = torch.cat(processed_images, dim=0).to(device)
+    with torch.no_grad():
+      image_features = clip_model.encode_image(images_tensor)
 
+    captions = [f"A photo of {text}" for text in class_texts]
+    text_tokens = clip.tokenize(captions).to(device)
+    with torch.no_grad():
+      text_features = clip_model.encode_text(text_tokens)
+    
+    similarities = get_similarity_no_loop(text_features, image_features)
+    pred_indices = similarities.argmax(dim=0)
+    pred_classes = [class_texts[i] for i in pred_indices]
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -90,7 +107,15 @@ class CLIPImageRetriever:
         # computation for each text query. You may end up NOT using the above      #
         # similarity function for most compute-optimal implementation.#
         ############################################################################
-
+        self.clip_model = clip_model
+        self.device = device
+        processed_images = [
+          clip_preprocess(Image.fromarray(image)).unsqueeze(0)
+          for image in images
+        ]
+        images_tensor = torch.cat(processed_images, dim=0).to(device)
+        with torch.no_grad():
+          self.image_features = clip_model.encode_image(images_tensor)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -113,7 +138,10 @@ class CLIPImageRetriever:
         ############################################################################
         # TODO: Retrieve the indices of top-k images.                              #
         ############################################################################
-
+        text_tokens = clip.tokenize([query]).to(self.device)
+        text_features = self.clip_model.encode_text(text_tokens)
+        similarities = get_similarity_no_loop(text_features, self.image_features)
+        top_indices = similarities[0].topk(k=k).indices.cpu().tolist()
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -230,7 +258,13 @@ class DINOSegmentation:
         # function to train classify each DINO feature vector into a seg. class.   #
         # It can be a linear layer or two layer neural network.                    #
         ############################################################################
-
+        self.model = nn.Sequential(
+          nn.Linear(inp_dim, inp_dim),
+          nn.ReLU(),
+          nn.Linear(inp_dim, num_classes)
+        ).to(device)
+        self.optim = torch.optim.Adam(self.model.parameters(), weight_decay=0.001)
+        self.criterion = nn.CrossEntropyLoss()
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -247,7 +281,12 @@ class DINOSegmentation:
         ############################################################################
         # TODO: Train your model for `num_iters` steps.                            #
         ############################################################################
-
+        for _ in range(num_iters):
+          out = self.model(X_train)
+          loss = self.criterion(out, Y_train)
+          self.optim.zero_grad()
+          loss.backward()
+          self.optim.step()
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -267,7 +306,8 @@ class DINOSegmentation:
         ############################################################################
         # TODO: Train your model for `num_iters` steps.                            #
         ############################################################################
-
+        out = self.model(X_test)
+        pred_classes = out.argmax(dim=1)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
